@@ -17,7 +17,7 @@ play(Free, Occupied, Lst, Moves) :-
 	move(S, O, E),
 	play([S, O | F1], [E | Oc2], [move(S,O,E) | Lst], Moves).
  
- 
+ %legal moves we can make
 move(S,2,E) :-
 	member([S,E], [[1,4], [4,1]]).
 move(S,3,E) :-
@@ -55,7 +55,7 @@ move(S,13,E):-
 move(S,14,E):-
 	member([S,E], [[15,13], [13,15]]).
  
- 
+ %display the game
 display(Sol) :-
 	display(Sol, [1]).
  
@@ -84,3 +84,5 @@ display([move(Start, Middle, End) | Tail], Free) :-
 	format('~w ~w ~w ~w ~w~n', [I11,I12,I13,I14,I15]),
 	select(End, Free, F1),
 	display(Tail,  [Start, Middle | F1]).
+	
+	%cite: https://rosettacode.org/wiki/I.Q._Puzzle#Prolog
