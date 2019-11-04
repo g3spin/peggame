@@ -1,10 +1,10 @@
 :- use_module(library(lambda)).
  
-iq_puzzle :-
-	iq_puzzle(Moves),
+peg_game :-
+	peg_game(Moves),
 	display(Moves).
  
-iq_puzzle(Moves) :-
+peg_game(Moves) :-
 	play([1], [2,3,4,5,6,7,8,9,10,11,12,13,14,15], [], Moves).
  
 play(_, [_], Lst, Moves) :-
