@@ -1,251 +1,115 @@
 import java.util.*;
 
-class Move
-{
-    public int from; 
-    public int over; 
-    public int to; 
+public class gamePeg {
 
-    public Move(int from, int over, int to)
-    {
-        this.from = from;
-        this.over = over;
-        this.to   = to;
-    }
+	final public static int SIZE = 5;
+	final public static boolean DEBUG = false;
+	final public static int HOLE_R = 4;
+	final public static int HOLE_C = 2;
+	public static HashMap<Integer,Integer> distances;
 
-    public Move reversed() 
-    { return new Move(to, over, from); }
+	final public static int[] DX = {-1,-1,0,0,1,1};
+	final public static int[] DY = {-1,0,-1,1,0,1};
 
-    @Override
-    public String toString()
-    {
-        return "(" + from + ", " + over + ", " + to + ")";
-    }
-}
+	public static void main(String[] args) {
 
-class Board
-{
-    public int pegCount;
-    public int[] cells;
+		int start = boardInitiation(HOLE_R, HOLE_C);
 
-    public Board(int emptyCell)
-    {
-        cells = new int[15];
-        pegCount = 14;
-        for (int i = 0; i < 15; i++)
-            cells[i] = i == emptyCell ? 0 : 1;
-    }
+		distances = new HashMap<Integer,Integer>();
+		distances.put(start, 0);
 
-    public Board(int pegCount, int[] cells)
-    {
-        this.pegCount = pegCount;
-        this.cells    = cells.clone();
-    }
+		LinkedList<Integer> q = new LinkedList<Integer>();
+		q.offer(start);
 
-    public Board move(Move m)
-    {
-        if (cells[m.from] == 1 && 
-            cells[m.over] == 1 && 
-            cells[m.to]   == 0) 
-        {
-            Board boardAfter = new Board(pegCount-1, cells.clone());
-            boardAfter.cells[m.from] = 0;
-            boardAfter.cells[m.over] = 0;
-            boardAfter.cells[m.to]   = 1;
+		while (q.size() > 0) {
 
-            return boardAfter;
-        }
+			int cur = q.poll();
+			int curdist = distances.get(cur);
 
-        return null;
-    }
-}
+			ArrayList<Integer> nextList = getNextPos(cur);
 
-class stepMovement implements Iterator<Move>
-{
-    private Move[] moves;
-    private Move   reversed;
-    private int    i;
+			for (int i=0; i<nextList.size(); i++) {
+				if (!distances.containsKey(nextList.get(i))) {
+					distances.put(nextList.get(i), curdist+1);
+					q.offer(nextList.get(i));
+				}
+			}
 
-    public stepMovement(Move[] moves)
-    {
-        this.moves = moves;
-        this.i     = 0;
-    }
+			// Initial version will only print possible ending boards.
+			if (nextList.size() == 0) print(cur);
+		}
 
-    @Override
-    public boolean hasNext() 
-    { return i < moves.length || (i == moves.length && reversed != null); }
+		if (DEBUG) {
+			for (Integer board: distances.keySet())
+				print(board);
+		}
+	}
 
-    @Override
-    public Move next() 
-    { 
-        if (reversed != null)
-        {
-            Move result = reversed;
-            reversed = null;
-            return result;
-        }
+	public static int boardInitiation(int holeR, int holeC) {
 
-        Move m = moves[i++];
-        reversed = m.reversed();
+		// This is the full board.
+		int mask = 0;
+		for (int i=0; i<SIZE; i++)
+			for (int j=0; j<=i; j++)
+				mask = mask | (1<<(SIZE*i+j));
 
-        return m;
-    }
-}
+		// Just subtract out the current hole.
+		return mask - (1<<(SIZE*holeR+holeC));
+	}
+	public static ArrayList<Integer> getNextPos(int mask) {
 
-class stepPossible implements Iterable<Move>
-{
-    public static final Move[] moves = 
-    {
-        new Move(0, 1, 3),
-        new Move(0, 2, 5),
-        new Move(1, 3, 6),
-        new Move(1, 4, 8),
-        new Move(2, 4, 7),
-        new Move(2, 5, 9),
-        new Move(3, 6, 10),
-        new Move(3, 7, 12),
-        new Move(4, 7, 11),
-        new Move(4, 8, 13),
-        new Move(5, 8, 12),
-        new Move(5, 9, 14),
-        new Move(3, 4, 5),
-        new Move(6, 7, 8),
-        new Move(7, 8, 9),
-        new Move(10, 11, 12),
-        new Move(11, 12, 13),
-        new Move(12, 13, 14)
-    };
+		ArrayList<Integer> pos = new ArrayList<Integer>();
 
-    @Override
-    public stepMovement iterator()
-    { return new stepMovement(moves); }
-}
+		for (int r =0; r<SIZE; r++) {
+			for (int c=0; c<=SIZE; c++) {
 
-public class Cracker
-{
-    static stepPossible steps() 
-    { return new stepPossible(); }
+				// Now try each move.
+				for (int dir=0; dir<DX.length; dir++) {
 
-    static ArrayList<LinkedList<Move>> solve(Board b)
-    {
-        ArrayList<LinkedList<Move>> out = new ArrayList<LinkedList<Move>>();
-        solve(b, out, 0);
+					// Ending square is out of bounds.
+					if (!inbounds(r+2*DX[dir], c+2*DY[dir])) continue;
 
-        return out;
-    }
+					// A move is valid only if the first two holes have gamePegs and the destination doesn't.
+					if (on(mask, SIZE*r+c) && on(mask, SIZE*(r+DX[dir]) + c + DY[dir]) && !on(mask, SIZE*(r+2*DX[dir]) + c + 2*DY[dir])) {
+						int newpos = go(mask, dir, r, c);
+						pos.add(newpos);
+					}
+				}
+			}
+		}
 
-    static LinkedList<Move> firstSolution(Board b)
-    {
-        ArrayList<LinkedList<Move>> out = new ArrayList<LinkedList<Move>>();
-        solve(b, out, 1);
+		return pos;
+	}
 
-        if (out.size() == 0) // sanity
-            return null;
+	public static void print(int mask) {
 
-        return out.get(0);
-    }
+		for (int i=0; i<SIZE; i++) {
 
-    static void solve(Board b, ArrayList<LinkedList<Move>> solutions, int count)
-    {
-        if (b.pegCount == 1)
-        {
-            solutions.add(new LinkedList<Move>());
-            return;
-        }
+			for (int j=0; j<SIZE-1-i; j++) System.out.print(" ");
 
-        for (Move m : steps()) 
-        {
-            Board boardAfter = b.move(m);
-            if (boardAfter == null) continue;
+			for (int j=0; j<=i; j++) {
+				if (on(mask, SIZE*i+j)) System.out.print("X ");
+				else					System.out.print("_ ");
+			}
+			System.out.println();
+		}
+		System.out.println();
+	}
 
-            ArrayList<LinkedList<Move>> tailSolutions = new ArrayList<LinkedList<Move>>();
-            solve(boardAfter, tailSolutions, count);
+	public static int go(int mask, int dir, int r, int c) {
 
-            for (LinkedList<Move> solution : tailSolutions)
-            {
-                solution.add(0, m);
-                solutions.add(solution);
+		int start = SIZE*r + c;
+		int mid = SIZE*(r+DX[dir]) + c + DY[dir];
+		int end = SIZE*(r+2*DX[dir]) + c + 2*DY[dir];
 
-                if (solutions.size() == count)
-                    return;
-            }
-        }
-    }
+		return mask - (1<<start) - (1<<mid) + (1<<end);
+	}
 
-    static void BoardDisplay(Board b)
-    {
-        System.out.print("(" + b.pegCount + ", [");
-        for (int i = 0; i < b.cells.length; i++)
-            System.out.print(i < b.cells.length-1 ? b.cells[i] + ", " : b.cells[i] + "])");
-        System.out.println();
-    }
+	public static boolean on(int mask, int bit) {
+		return (mask & (1<<bit)) != 0;
+	}
 
-    static void show(Board b)
-    {
-        int[][] lines = { {4,0,0}, {3,1,2}, {2,3,5}, {1,6,9}, {0,10,14} };
-        for (int[] l : lines)
-        {
-            int spaces = l[0];
-            int begin  = l[1];
-            int end    = l[2];
-
-            String space = new String();
-            for (int i = 0; i < spaces; i++)
-                space += " ";
-
-            System.out.print(space);
-            for (int i = begin; i <= end; i++)
-                System.out.print(b.cells[i] == 0 ? ". " : "x ");
-
-            System.out.println();
-        }
-
-        System.out.println();
-    }
-
-    static void replay(List<Move> moves, Board b)
-    {
-        show(b);
-        for (Move m : moves)
-        {
-            b = b.move(m);
-            show(b);
-        }
-    }
-
-    static void terse()
-    {
-        for (int i = 0; i < 15; i++)
-        {
-            Board b = new Board(i);
-            BoardDisplay(b);
-            List<Move> moves = firstSolution(b);
-            for (Move m : moves) 
-            {
-                System.out.println(m);
-                b = b.move(m);
-            }
-            BoardDisplay(b);
-            System.out.println();
-        }
-    }
-
-    static void runit()
-    {
-        for (int i = 0; i < 5; i++)
-        {
-            System.out.println("=== " + i + " ===");
-            Board b = new Board(i);
-            replay(firstSolution(b), b);
-            System.out.println();
-        }
-    }
-
-    public static void main(String[] args)
-    {
-        runit();
-        terse();
-
-    }
+	public static boolean inbounds(int myr, int myc) {
+		return myr >= 0 && myr < SIZE && myc >= 0 && myc <= myr;
+	}
 }
